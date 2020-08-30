@@ -2,22 +2,40 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 import hmac
 import json
+from hashlib import sha256
+
 from base64 import urlsafe_b64encode
 from odoo import fields, models, _
 from odoo.exceptions import ValidationError
 
 
-class AbstractBackendMixin(models.AbstractModel):
-    _name = "abstract.backend.mixin"
-    _description = "Abstract Backend Mixin"
+class TenantBackendMixin(models.AbstractModel):
+    _inherit = "tenant.backend.mixin"
+    _description = "Tenant Backend"
 
-    jwt_secret_token = fields.Char()
+    def sign_in(self, login, password, tenant_model):
+        result = super().sign_in(login, password, tenant_model)
 
-    def _get_signature(self, header, payload):
+        pwd_hash = sha256(password)
+        tenant = self.env[tenant_model].sign_in(login, pwd_hash)
+        if tenant:
+            return tenant
+        raise ValidationError(_("Tenant credentials invalid"))
+
+    def sign_up(self, login, password, tenant_model):
+        pwd_hash = sha256(password)
+        return self.env[tenant_model].sign_up(login, pwd_hash, self.id)
+
+    def reset_password(self, tenant):
+        setattr(tenant, tenant._password_hash_field, "")
+
+
+
+    def jwt_get_signature(self, header, payload):
         to_hash = "{}.{}".format(header, payload)
         return hmac.digest(self.jwt_secret_token, to_hash, "sha256")
 
-    def verify_token_validity(self, token):
+    def jwt_verify_validity(self, token):
         split = token.split(".")
         if len(split) != 3:
             raise ValidationError(_("Bad JWT token: incorrect parts lengths"))
@@ -26,7 +44,7 @@ class AbstractBackendMixin(models.AbstractModel):
             raise ValidationError(_("Bad JWT token: could not verify signature"))
         return True
 
-    def generate_token(self, tenant):
+    def jwt_generate(self, tenant):
         backend = "{}{}".format(self._name, self.id)
         login = getattr(tenant, tenant._login_field)
         header = {"alg": "HS256", "typ": "JWT"}

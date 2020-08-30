@@ -9,7 +9,7 @@
     "license": "AGPL-3",
     "author": "Akretion,Odoo Community Association (OCA)",
     "website": "https://www.akretion.com",
-    "depends": ["component", "base_rest"],
+    "depends": ["auth_tenant_base"],
     "data": [],
     "demo": [],
 }

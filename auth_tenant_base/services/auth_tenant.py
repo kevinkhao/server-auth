@@ -1,12 +1,13 @@
 # Copyright 2020 Akretion
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
+import uuid
 from odoo.addons.base_rest import restapi
 from odoo.addons.component.core import AbstractComponent
 
 
-class TenantAuthService(AbstractComponent):
+class AuthTenantBase(AbstractComponent):
     _inherit = "base.rest.service"
-    _name = "tenant.auth.service"
+    _name = "auth.tenant.base"
     _usage = "auth"
     _collection = None
     _description = """
@@ -15,21 +16,23 @@ class TenantAuthService(AbstractComponent):
     + route renouvellement de token
 
 
-    def _sign_in(self, login, password, tenant_model_name):
-        tenant = tenant_model_name.sign_in(login, password)
+
+    def _sign_up(self, login, password, tenant_model):
+        self._collection.sign_up(login, password, tenant_model)
+
+    def _sign_in(self, login, password, tenant_model):
+        tenant = self._collection.sign_in(login, password, tenant_model)
         return tenant
 
     def _sign_out(self, tenant):
         raise NotImplementedError
 
     def _reset_password(self, tenant):
-        setattr(tenant, tenant._password_hash_field, "")
-
-    def _sign_up(self, login, password):
-        self._collection.sign_up(login, password)
+        setattr(tenant, tenant._password_hash_field, uuid.uuid4())
 
     @restapi.method(
         [(["/<int:id>/get", "/<int:id>"], "GET")],
+        input_
         output_param=restapi.Datamodel("partner.info"),
         auth="public",
     )
